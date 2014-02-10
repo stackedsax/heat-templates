@@ -1,0 +1,78 @@
+heat_template_version: 2013-05-23
+
+description: |
+  A simple template to create a Plesk server on a CentOS system.
+
+parameters:
+
+  flavor:
+    description: Rackspace Cloud Server flavor
+    type: string 
+    default: performance1-1
+    constraints:
+    - allowed_values:
+      - performance1-1
+      - performance1-2
+      - performance1-4
+      - performance1-8
+      - performance2-15
+      - performance2-30
+      - performance2-60
+      - performance2-90
+      - performance2-120
+      - 512MB Standard Instance
+      - 1GB Standard Instance
+      - 2GB Standard Instance
+      - 4GB Standard Instance
+      - 8GB Standard Instance
+      - 15GB Standard Instance
+      - 30GB Standard Instance
+      description: must be a valid Rackspace Cloud Server flavor.
+
+  server_name:
+    description: the instance name
+    type: string
+    default: Plesk server
+
+  server_password:
+    hidden: true
+    description: plesk server admin account password
+    type: string
+    default: admin
+    constraints:
+    - length:
+        min: 1
+        max: 41
+      description: must be between 1 and 14 characters
+    - allowed_pattern: '[a-zA-Z0-9_]+[a-zA-Z0-9_@?#\s]*[a-zA-Z0-9_]+'
+      description : 'Password must match the expression "[a-zA-Z0-9_]+[a-zA-Z0-9_@?#\s]*[a-zA-Z0-9_]+"' 
+
+resources:
+
+  plesk_server: 
+    type: "Rackspace::Cloud::Server"
+    properties:
+      flavor: { get_param: flavor }
+      image: "CentOS 6.4"
+      name: { get_param: server_name }
+      user_data:
+        str_replace:
+          template: |
+            yum -y update
+            wget http://autoinstall.plesk.com/one-click-installer
+            /sbin/iptables -I INPUT 1 -p tcp --dport 8443 -j ACCEPT
+            /sbin/service iptables save
+            bash ./one-click-installer
+            /usr/local/psa/bin/init_conf -u -passwd %server_password%
+          params:
+            "%server_password%": { get_param: server_password }
+
+outputs:
+
+  public_ip:
+    value: { get_attr: [ plesk_server, accessIPv4 ] }
+    description: The public ip address of the server
+
+  private_ip:
+    value: { get_attr: [ plesk_server, privateIPv4 ] }
+    description: The private ip address of the server
